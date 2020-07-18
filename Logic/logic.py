@@ -23,7 +23,7 @@ def state_logic(pointer, data):
     # Tinker with the return threshold as well
     if returns <= 2:
         return 0  # Sell
-    if returns > 2:
+    elif returns > 2:
         return 1  # Buy
 
 # Black-Scholes Model function needed for our current state logic
