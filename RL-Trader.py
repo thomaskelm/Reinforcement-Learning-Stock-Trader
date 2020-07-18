@@ -36,7 +36,7 @@ import sys, time, datetime
 from Logic.logic import calculate_BSM, state_logic
 
 # Welcome message
-print "\nThanks for using the Reinforcement Learning Stock Trader by Matija Krolo. If you experience an error, it is most likely because the Equity/Stock you chose to analyize does not have available data before the date you entered. If you encounter an error, please check Yahoo.com/finance to ensure it is not the case. \n"
+print("\nThanks for using the Reinforcement Learning Stock Trader by Matija Krolo. If you experience an error, it is most likely because the Equity/Stock you chose to analyize does not have available data before the date you entered. If you encounter an error, please check Yahoo.com/finance to ensure it is not the case. \n")
 time.sleep(1)
 
 # Get passed-in arguments
@@ -44,7 +44,7 @@ GIVEN_EQUITY, START_DATE, STARTING_PORTFOLIO_VALUE, TRADES_TO_RUN = sys.argv[1],
 
 # Error check arguments
 if len(sys.argv) != 5:
-    print "To run: RL-Trader.py [EQUITY] [START DATE - DAY/MONTH/YEAR] [STARTING PORTFOLIO VALUE] [HOW MANY TRADES TO RUN BEFORE REINFORCEMENT LEARNING BEGINS]\nEx. RL-Trader.py F 1/1/2000 1000 200"
+    print("To run: RL-Trader.py [EQUITY] [START DATE - DAY/MONTH/YEAR] [STARTING PORTFOLIO VALUE] [HOW MANY TRADES TO RUN BEFORE REINFORCEMENT LEARNING BEGINS]\nEx. RL-Trader.py F 1/1/2000 1000 200")
     exit()
 
 # Get Equity Data
@@ -66,7 +66,7 @@ TOTAL_TRADES = len(EQUITY['Close'])
 
 # Error Check
 if int(TRADES_TO_RUN) > TOTAL_TRADES:
-    print "\nThere are only " + str(TOTAL_TRADES) + " trading days available from data, which is greater than the input of " + str(TRADES_TO_RUN) + ". Please try again."
+    print("\nThere are only " + str(TOTAL_TRADES) + " trading days available from data, which is greater than the input of " + str(TRADES_TO_RUN) + ". Please try again.")
     exit()
 
 # Q-Table generator function
@@ -123,27 +123,27 @@ def determine_payoff(pointer, trade, inPortfolio):
     global priceAtPurchase
     if inPortfolio:  # Stock is already owned
         if trade == 0:  # Cannot rebuy the equity; return delta
-            print 'Holding Equity at $' + str(round(data['EQUITY'
-                    ][pointer], 2))
-            print 'Purchase Price: $' + str(round(priceAtPurchase, 2))
+            print('Holding Equity at $' + str(round(data['EQUITY'
+                    ][pointer], 2)))
+            print('Purchase Price: $' + str(round(priceAtPurchase, 2)))
             inPortfolio = True
             return (0, inPortfolio)
         if trade == 1:  # Sell the Equity
             inPortfolio = False  # Remove Equity from portfolio
-            print '** Equity sold at $' + str(round(data['EQUITY'
-                    ][pointer], 2))
+            print('** Equity sold at $' + str(round(data['EQUITY'
+                    ][pointer], 2)))
             return (data['EQUITY'][pointer] - priceAtPurchase, inPortfolio)
     if inPortfolio == False:  # Equity is not owned
         if trade == 0:  # Buy the equity
             inPortfolio = True  # Add it to the portfolio
-            print '** Equity bought at $' + str(round(data['EQUITY'
-                    ][pointer], 2))  # Display Price Equity was purchased at
+            print('** Equity bought at $' + str(round(data['EQUITY'
+                    ][pointer], 2)))  # Display Price Equity was purchased at
             priceAtPurchase = data['EQUITY'][pointer]  # Record the price at which the Equity was purchased
             return (0.0, inPortfolio)
         if trade == 1:  # Sell
             inPortfolio = False
-            print 'Out of the market at $' + str(round(data['EQUITY'
-                    ][pointer], 2))
+            print('Out of the market at $' + str(round(data['EQUITY'
+                    ][pointer], 2)))
             return (0.0, inPortfolio)
  
 
@@ -165,7 +165,7 @@ def run():
         # Find the payoff from the trade
         result, inPortfolio = determine_payoff(x, trade, inPortfolio)
         # Display to user
-        print 'Profit from instance: ' + str(round(result, 2))
+        print('Profit from instance: ' + str(round(result, 2)))
         # Append result from trade to aggregate profit
         aggregate_profit.append(result)
         # Slows down the script
@@ -183,9 +183,9 @@ def run():
         # Append to located cell in Q-Table || Tweak this
         q_table.iloc[select_state(x), trade] += float(agent.alpha) * (q_target
                 - q_predict)
-        print '\n'
+        print('\n')
     if inPortfolio:
-        print "**** Please note that Equity is still held and may be traded later, this may affect profits ****"
+        print("**** Please note that Equity is still held and may be traded later, this may affect profits ****")
     # Return the Q-Table and profit as a tuple
     profit = np.sum(aggregate_profit)
     return (q_table, profit)
@@ -193,13 +193,13 @@ def run():
 # Ensures everything is loaded
 if __name__ == '__main__':
     q_table, profit = run()
-    print '''\r
+    print('''\r
 Q-table:
-'''
+''')
     # Add reference column
     q_table["Reference"] = ['When Equity Appreciated', 'When Equity Held Value', 'When Equity Depreciated']
-    print q_table
+    print(q_table)
     # Show profits
     calc_profits = 1 + round(profit, 2)/100.0
     calc_profits = calc_profits * float(STARTING_PORTFOLIO_VALUE)
-    print '\nProfits from trading ' + str(GIVEN_EQUITY) + ' with starting portfolio of $' + str(STARTING_PORTFOLIO_VALUE) + ': $' + str(calc_profits)
+    print('\nProfits from trading ' + str(GIVEN_EQUITY) + ' with starting portfolio of $' + str(STARTING_PORTFOLIO_VALUE) + ': $' + str(calc_profits))
