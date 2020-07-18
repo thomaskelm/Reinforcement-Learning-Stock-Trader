@@ -9,7 +9,7 @@ lookup = [
                 if key not in ['Math Transform', 'Math Operators']
 ]
 
-def dataset_loader(stock_name, start, end, interval, use_proxy=True):
+def dataset_loader(stock_name, start, end, interval, use_proxy=True, include_indicators=False):
     ticker = yf.Ticker(stock_name)
     temp = None
     for i in range(1,11):
@@ -21,10 +21,10 @@ def dataset_loader(stock_name, start, end, interval, use_proxy=True):
             print(f'likely issue with the proxy on try {i}, trying {11-i} more times')
             print(e)
     temp.reset_index(inplace=True)
-    return temp
-    # df = add_indicators(temp)
-    # df[~df.ADX.isna()][:]
-    # return df
+    if include_indicators:
+        return add_indicators(temp)
+    else:
+        return temp
 
 def add_indicators(data):
     df = data.copy(deep=True)
