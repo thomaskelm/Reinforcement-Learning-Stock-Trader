@@ -12,9 +12,11 @@
 # ** Please note that this RL script only trades one equity at a time!
 
 # Edit these values to change how the RL brain learns
-EPSILON = .3
-ALPHA = .1
-GAMMA = .1
+EPSILON = .5
+EPSILON_DECAY = 0.1
+ALPHA = .01
+GAMMA = .8
+priceAtPurchase = 0
 
 # Create agent class
 class Agent:
@@ -24,38 +26,32 @@ class Agent:
         self.gamma = gamma_input
 
 # Create class object
-agent = Agent(EPSILON, ALPHA, GAMMA)
+agent = Agent(ALPHA,EPSILON, GAMMA)
 
 # Import Libraries
 import numpy as np
 from scipy import stats
-import pandas_datareader.data as web
 from math import log
 import pandas as pd
 import sys, time, datetime
 from Logic.logic import calculate_BSM, state_logic
 
-# Welcome message
-print("\nThanks for using the Reinforcement Learning Stock Trader by Matija Krolo. If you experience an error, it is most likely because the Equity/Stock you chose to analyize does not have available data before the date you entered. If you encounter an error, please check Yahoo.com/finance to ensure it is not the case. \n")
-time.sleep(1)
+import get_data
 
 # Get passed-in arguments
-GIVEN_EQUITY, START_DATE, STARTING_PORTFOLIO_VALUE, TRADES_TO_RUN = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+GIVEN_EQUITY, START_DATE, STARTING_PORTFOLIO_VALUE, TRADES_TO_RUN = 'AAPL','2000-01-01', 5000, 4500#sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
 # Error check arguments
-if len(sys.argv) != 5:
-    print("To run: RL-Trader.py [EQUITY] [START DATE - DAY/MONTH/YEAR] [STARTING PORTFOLIO VALUE] [HOW MANY TRADES TO RUN BEFORE REINFORCEMENT LEARNING BEGINS]\nEx. RL-Trader.py F 1/1/2000 1000 200")
-    exit()
+# if len(sys.argv) != 5:
+#     #print("To run: RL-Trader.py [EQUITY] [START DATE - DAY/MONTH/YEAR] [STARTING PORTFOLIO VALUE] [HOW MANY TRADES TO RUN BEFORE REINFORCEMENT LEARNING BEGINS]\nEx. RL-Trader.py F 1/1/2000 1000 200")
+#     exit()
 
 # Get Equity Data
 CURRENT_MONTH = datetime.datetime
 # Todo: create datetime function for user inputs on end dates
-EQUITY = web.get_data_yahoo(GIVEN_EQUITY, end='1/1/2019', start=START_DATE,
-                            interval='m')
-MKT_VOLATIILTY = web.get_data_yahoo('^VIX', end='1/1/2019',
-                                    start=START_DATE, interval='m')
-RF_Rate = web.get_data_yahoo('^TNX', end='1/1/2019', start=START_DATE,
-                             interval='m')
+EQUITY = get_data.dataset_loader(GIVEN_EQUITY, end='2019-01-01', start=START_DATE,interval='1d')
+MKT_VOLATIILTY =  get_data.dataset_loader('^VIX', end='2019-01-01', start=START_DATE, interval='1d')
+RF_Rate = get_data.dataset_loader('^TNX', end='2019-01-01', start=START_DATE,interval='1d')
 
 # Don't edit these
 STATES = 3
@@ -76,8 +72,8 @@ def build_q_table(n_states, actions):
     return table
 
 # Create dictionary
-compile_data = {'EQUITY': EQUITY['Adj Close'], 'RF': RF_Rate['Adj Close'
-                ], 'SIGMA': MKT_VOLATIILTY['Adj Close']}
+compile_data = {'EQUITY': EQUITY['Close'], 'RF': RF_Rate['Close'
+                ], 'SIGMA': MKT_VOLATIILTY['Close']}
 
 # Compile dataframe from dictionary
 data = pd.DataFrame(compile_data)
@@ -85,8 +81,8 @@ data = pd.DataFrame(compile_data)
 # Agent brain for RL
 def choose_trade(pointer, q_table):
     # Logic is only running
-    if pointer < int(TRADES_TO_RUN):
-        print ("Reinforcement Learning not initiated yet, Q-Table still building.")
+    # if pointer < int(TRADES_TO_RUN):
+    #     print ("Reinforcement Learning not initiated yet, Q-Table still building.")
     # Find the trade decision from our trade logic
     analytic_decision = state_logic(pointer, data)
     # Select state from Q-Table
@@ -123,35 +119,27 @@ def determine_payoff(pointer, trade, inPortfolio):
     global priceAtPurchase
     if inPortfolio:  # Stock is already owned
         if trade == 0:  # Cannot rebuy the equity; return delta
-            print('Holding Equity at $' + str(round(data['EQUITY'
-                    ][pointer], 2)))
-            print('Purchase Price: $' + str(round(priceAtPurchase, 2)))
+            #print('Holding Equity at $' + str(round(data['EQUITY'][pointer], 2)))
+            #print('Purchase Price: $' + str(round(priceAtPurchase, 2)))
             inPortfolio = True
             return (0, inPortfolio)
         if trade == 1:  # Sell the Equity
             inPortfolio = False  # Remove Equity from portfolio
-            print('** Equity sold at $' + str(round(data['EQUITY'
-                    ][pointer], 2)))
+            #print('** Equity sold at $' + str(round(data['EQUITY'][pointer], 2)))
             return (data['EQUITY'][pointer] - priceAtPurchase, inPortfolio)
     if inPortfolio == False:  # Equity is not owned
         if trade == 0:  # Buy the equity
             inPortfolio = True  # Add it to the portfolio
-            print('** Equity bought at $' + str(round(data['EQUITY'
-                    ][pointer], 2)))  # Display Price Equity was purchased at
+            #print('** Equity bought at $' + str(round(data['EQUITY'][pointer], 2)))  # Display Price Equity was purchased at
             priceAtPurchase = data['EQUITY'][pointer]  # Record the price at which the Equity was purchased
             return (0.0, inPortfolio)
         if trade == 1:  # Sell
             inPortfolio = False
-            print('Out of the market at $' + str(round(data['EQUITY'
-                    ][pointer], 2)))
-            return (0.0, inPortfolio)
- 
-
-# Global variables will be moved into a profit class at next commit
-priceAtPurchase = 0
+            #print('Out of the market at $' + str(round(data['EQUITY'][pointer], 2)))
+            return (0.0, inPortfolio) 
  
 # Runs RL script
-def run():
+def run(use_decay=False):
     # Builds the Q-Table
     q_table = build_q_table(STATES, ACTIONS)
     inPortfolio = False
@@ -159,17 +147,21 @@ def run():
     # Assuming 0 profit -- or a portfolio with a reference of $0
     profit = 0
     # Move through all possible trades
-    for x in range(TOTAL_TRADES):
+    for x in range(2,TOTAL_TRADES):
+        print(x, end='\r')
         # RL Agent chooses the trade
         trade = choose_trade(x - 1, q_table)
         # Find the payoff from the trade
-        result, inPortfolio = determine_payoff(x, trade, inPortfolio)
+        try:
+            result, inPortfolio = determine_payoff(x, trade, inPortfolio)
+        except TypeError:
+            continue
+        except:
+            raise
         # Display to user
-        print('Profit from instance: ' + str(round(result, 2)))
+        #print('Profit from instance: ' + str(round(result, 2)))
         # Append result from trade to aggregate profit
         aggregate_profit.append(result)
-        # Slows down the script
-        time.sleep(.05)
         # Append to profit
         profit += result
         q_predict = q_table.iloc[select_state(x), trade]
@@ -183,23 +175,26 @@ def run():
         # Append to located cell in Q-Table || Tweak this
         q_table.iloc[select_state(x), trade] += float(agent.alpha) * (q_target
                 - q_predict)
-        print('\n')
+        if use_decay and agent.epsilon >= EPSILON_DECAY:
+            agent.epsilon = agent.epsilon - 0.005
+        #print('\n')
+    print()
     if inPortfolio:
         print("**** Please note that Equity is still held and may be traded later, this may affect profits ****")
     # Return the Q-Table and profit as a tuple
     profit = np.sum(aggregate_profit)
-    return (q_table, profit)
+    return q_table, profit
 
 # Ensures everything is loaded
 if __name__ == '__main__':
     q_table, profit = run()
     print('''\r
-Q-table:
-''')
+        Q-table:
+    ''')
     # Add reference column
     q_table["Reference"] = ['When Equity Appreciated', 'When Equity Held Value', 'When Equity Depreciated']
     print(q_table)
     # Show profits
-    calc_profits = 1 + round(profit, 2)/100.0
+    calc_profits = 1 + (round(profit, 2)/1000.0)
     calc_profits = calc_profits * float(STARTING_PORTFOLIO_VALUE)
     print('\nProfits from trading ' + str(GIVEN_EQUITY) + ' with starting portfolio of $' + str(STARTING_PORTFOLIO_VALUE) + ': $' + str(calc_profits))
